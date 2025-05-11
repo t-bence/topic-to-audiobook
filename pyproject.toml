@@ -1,0 +1,11 @@
+[project]
+name = "topic-to-audiobook"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "accelerate>=1.6.0",
+    "sounddevice>=0.5.1",
+    "transformers>=4.51.3",
+]
