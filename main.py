@@ -1,40 +1,36 @@
-import sounddevice as sd
-import torch
-from transformers import AutoTokenizer, VitsModel
+import asyncio
+import os
+
+import yaml
+from dotenv import load_dotenv
+from openai import AsyncOpenAI
+from openai.helpers import LocalAudioPlayer
+
+load_dotenv()
 
 
-def main(topic: str):
+assert os.environ["OPENAI_API_KEY"], "No API key found"
 
-    model = VitsModel.from_pretrained("facebook/mms-tts-hun")
-    tokenizer = AutoTokenizer.from_pretrained("facebook/mms-tts-hun")
 
-    inputs = tokenizer(topic, return_tensors="pt")
+async def main(story: str, voice: str = "ash", instructions: str = "") -> None:
+    openai = AsyncOpenAI()
 
-    with torch.no_grad():
-        output = model(**inputs).waveform
-
-    # Squeeze the waveform to remove the batch dimension if it's there (e.g., [1, N] -> [N])
-    # and convert to a NumPy array for sounddevice
-    waveform_np = output.squeeze().cpu().numpy()
-    sampling_rate = model.config.sampling_rate
-
-    print("Playing...")
-    sd.play(waveform_np, samplerate=sampling_rate)
-    sd.wait()
-    print("Done.")
+    async with openai.audio.speech.with_streaming_response.create(
+        model="gpt-4o-mini-tts",
+        voice=voice,
+        input=story,
+        instructions=instructions,
+        response_format="pcm",
+    ) as response:
+        await LocalAudioPlayer().play(response)
 
 
 if __name__ == "__main__":
-    import argparse
+    with open("config.yaml", "r") as f:
+        config = yaml.safe_load(f)
 
-    parser = argparse.ArgumentParser(description="Generate speech from text.")
-    parser.add_argument(
-        "text",
-        type=str,
-        nargs="?",  # Add this to make the positional argument optional
-        help="The text to speak.",
-        default="Boribon és Annipanni elmentek szőlőt szedni.",
+    asyncio.run(
+        main(
+            config["story"], voice=config["voice"], instructions=config["instructions"]
+        )
     )
-    args = parser.parse_args()
-
-    main(args.text)
